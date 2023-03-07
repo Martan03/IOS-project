@@ -17,20 +17,30 @@ function get_editor() {
 
 # Opens file with editor chosen by get_editor function
 function open_file() {
-    if [ -z $1 ]
+    if [ -z $1 ] || [ ! -f $1 ]
     then
         return 1
     fi
+
+    save_usage $1 $2
 
     get_editor
     $editor $1
     return $?
 }
 
+function open_dir() {
+    return 0
+}
+
+# Create file in given directory
 function create_file() {
     if [ -z $1 ]
     then
         return 1
+    elif [ -f "$(realpath $1)" ]
+    then
+        return 0
     fi
 
     mkdir -p "$(realpath -m "$(dirname "$1")")"
@@ -39,6 +49,15 @@ function create_file() {
     return 0
 }
 
+function save_usage() {
+    echo "$1 $2" >> $MOLE_RC
+}
+
+function create_log() {
+    return 0
+}
+
+# Displays help
 function help() {
     echo "Welcome to MOLE by xsleza26!"
     echo "Usage:"
@@ -65,22 +84,76 @@ function help() {
     echo "    In format YYYY-MM-DD"
 }
 
-while getopts :hg: OPTION
-do
-    case "${OPTION}" in
-    h) help; exit 0;;
-    g) group=$OPTARG;;
-    *) echo "Invalid usage. Type: 'mole -h' to show help"; exit 2;;
-    esac
-done
+function parse_flags() {
+    while getopts :g:ma:b: OPTION
+    do
+        case "${OPTION}" in
+            g)
+                g=$OPTARG
+                ;;
+            m)
+                m=0
+                ;;
+            a)
+                a=$OPTARG
+                ;;
+            b)
+                b=$OPTARG
+                ;;
+            *)
+                echo "Invalid usage. Type: 'mole -h' to show help"
+                exit 2
+                ;;
+        esac
+    done
+}
 
 if [ -z $MOLE_RC ]
 then
     echo "Variable MOLE_RC is not set."
     exit 1
-elif [ ! -f $MOLE_RC ]
-    create_file $MOLE_RC
 fi
+create_file $MOLE_RC
+
+case "$1" in
+    list)
+        shift
+        parse_flags $*
+        echo "List not implemented"
+        exit 0;
+        ;;
+    secret-log)
+        shift
+        echo "You found my epic secret log"
+        exit 0;
+        ;;
+    -h)
+        help
+        exit 0
+        ;;
+    *)
+        parse_flags $*
+esac
 
 ((OPTIND--))
 shift $OPTIND
+
+# if $1 is empty, set value to '.' (current directory)
+path="${1:-.}"
+
+# mole [-m] [FILTERS] [DIRECTORY]
+# Opens last edited with mole, corresponding to filters
+# if m flag is set, opens most edited file
+if [ -d "$(realpath "")" ]
+then
+    open_dir "$(realpath "$dir")"
+    exit $?
+fi
+
+# mole [-g GROUP] FILE
+# Opens file, optional GROUP flag for opening to be assigned to
+if [ -f "$(realpath "$1")" ]
+then
+    open_file "$(realpath "$1")" "$g"
+    exit $?
+fi
