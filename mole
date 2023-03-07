@@ -1,61 +1,86 @@
 #!/bin/bash
 
+POSIXLY_CORRECT=yes
+
 # Gets default editor
 # If EDITOR is set, it is used; else VISUAL; else vi
-get_editor() {
-    editor="vi";
+function get_editor() {
+    editor="vi"
     if [ ! -z "$EDITOR" ]
     then
-        editor="$EDITOR";
+        editor="$EDITOR"
     elif [ ! -z "$VISUAL" ]
     then
-        editor="$VISUAL";
+        editor="$VISUAL"
     fi
 }
 
 # Opens file with editor chosen by get_editor function
-open_file() {
+function open_file() {
     if [ -z $1 ]
     then
-        return 1;
+        return 1
     fi
 
-    get_editor;
-    $editor $1;
+    get_editor
+    $editor $1
+    return $?
 }
 
-help() {
-    echo "Welcome to MOLE by xsleza26!";
-    echo "Usage:";
-    echo "  mole -h";
-    echo "    Displays help";
-    echo "  mole [-g GROUP] FILE";
-    echo "    Opens file, file opening will be assigned to the group if given";
-    echo "  mole [-m] [FILTERS] [DIRECTORY]";
-    echo "    Opens file from given directory (or current directory)";
-    echo "    If no filters, last edited file will be opened";
-    echo "  mole list [FILTERS] [DIRECTORY]";
-    echo "    Lists files that were opened/edited with MOLE";
-    echo "  mole secret-log [-b DATE] [-a DATE] [DIRECTORY1 [DIRECTORY2] [...]]";
-    echo "    Displays a secret log";
-    echo "";
-    echo "FILTERS:";
-    echo "  [-g GROUP1[,GROUP2][,...]";
-    echo "     Group specification";
-    echo "  [-a DATE]";
-    echo "    Records of the opened/edited files after this date";
-    echo "  [-b DATE]";
-    echo "    Records of the opened/edited files before this date";
-    echo "  DATE";
+function create_file() {
+    if [ -z $1 ]
+    then
+        return 1
+    fi
+
+    mkdir -p "$(realpath -m "$(dirname "$1")")"
+    touch "$(realpath "$1")"
+
+    return 0
+}
+
+function help() {
+    echo "Welcome to MOLE by xsleza26!"
+    echo "Usage:"
+    echo "  mole -h"
+    echo "    Displays help"
+    echo "  mole [-g GROUP] FILE"
+    echo "    Opens file, file opening will be assigned to the group if given"
+    echo "  mole [-m] [FILTERS] [DIRECTORY]"
+    echo "    Opens file from given directory (or current directory)"
+    echo "    If no filters, last edited file will be opened"
+    echo "  mole list [FILTERS] [DIRECTORY]"
+    echo "    Lists files that were opened/edited with MOLE"
+    echo "  mole secret-log [-b DATE] [-a DATE] [DIRECTORY1 [DIRECTORY2] [...]]"
+    echo "    Displays a secret log"
+    echo ""
+    echo "FILTERS:"
+    echo "  [-g GROUP1[,GROUP2][,...]"
+    echo "     Group specification"
+    echo "  [-a DATE]"
+    echo "    Records of the opened/edited files after this date"
+    echo "  [-b DATE]"
+    echo "    Records of the opened/edited files before this date"
+    echo "  DATE"
     echo "    In format YYYY-MM-DD"
 }
 
-open_file "test";
-
-while getopts :h OPTION
+while getopts :hg: OPTION
 do
     case "${OPTION}" in
     h) help; exit 0;;
+    g) group=$OPTARG;;
     *) echo "Invalid usage. Type: 'mole -h' to show help"; exit 2;;
     esac
 done
+
+if [ -z $MOLE_RC ]
+then
+    echo "Variable MOLE_RC is not set."
+    exit 1
+elif [ ! -f $MOLE_RC ]
+    create_file $MOLE_RC
+fi
+
+((OPTIND--))
+shift $OPTIND
