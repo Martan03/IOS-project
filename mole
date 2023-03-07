@@ -2,6 +2,38 @@
 
 POSIXLY_CORRECT=yes
 
+# Shows help
+function show_help() {
+    echo "Welcome to MOLE by xsleza26!"
+    echo "Usage:"
+    echo "  mole -h"
+    echo "    Displays help"
+    echo "  mole [-g GROUP] FILE"
+    echo "    Opens file, file opening will be assigned to the group if given"
+    echo "  mole [-m] [FILTERS] [DIRECTORY]"
+    echo "    Opens file from given directory (or current directory)"
+    echo "    If no filters, last edited file will be opened"
+    echo "  mole list [FILTERS] [DIRECTORY]"
+    echo "    Lists files that were opened/edited with MOLE"
+    echo "  mole secret-log [-b DATE] [-a DATE] [DIRECTORY1 [DIRECTORY2] [...]]"
+    echo "    Displays a secret log"
+    echo ""
+    echo "FILTERS:"
+    echo "  [-g GROUP1[,GROUP2][,...]"
+    echo "     Group specification"
+    echo "  [-a DATE]"
+    echo "    Records of the opened/edited files after this date"
+    echo "  [-b DATE]"
+    echo "    Records of the opened/edited files before this date"
+    echo "  DATE"
+    echo "    In format YYYY-MM-DD"
+}
+
+# Shows invalid usage message
+function show_invalid() {
+    echo "Invalid usage. Type: 'mole -h' to show help"
+}
+
 # Gets default editor
 # If EDITOR is set, it is used; else VISUAL; else vi
 function get_editor() {
@@ -57,33 +89,6 @@ function create_log() {
     return 0
 }
 
-# Displays help
-function help() {
-    echo "Welcome to MOLE by xsleza26!"
-    echo "Usage:"
-    echo "  mole -h"
-    echo "    Displays help"
-    echo "  mole [-g GROUP] FILE"
-    echo "    Opens file, file opening will be assigned to the group if given"
-    echo "  mole [-m] [FILTERS] [DIRECTORY]"
-    echo "    Opens file from given directory (or current directory)"
-    echo "    If no filters, last edited file will be opened"
-    echo "  mole list [FILTERS] [DIRECTORY]"
-    echo "    Lists files that were opened/edited with MOLE"
-    echo "  mole secret-log [-b DATE] [-a DATE] [DIRECTORY1 [DIRECTORY2] [...]]"
-    echo "    Displays a secret log"
-    echo ""
-    echo "FILTERS:"
-    echo "  [-g GROUP1[,GROUP2][,...]"
-    echo "     Group specification"
-    echo "  [-a DATE]"
-    echo "    Records of the opened/edited files after this date"
-    echo "  [-b DATE]"
-    echo "    Records of the opened/edited files before this date"
-    echo "  DATE"
-    echo "    In format YYYY-MM-DD"
-}
-
 function parse_flags() {
     while getopts :g:ma:b: OPTION
     do
@@ -101,7 +106,7 @@ function parse_flags() {
                 b=$OPTARG
                 ;;
             *)
-                echo "Invalid usage. Type: 'mole -h' to show help"
+                show_invalid
                 exit 2
                 ;;
         esac
@@ -128,7 +133,7 @@ case "$1" in
         exit 0;
         ;;
     -h)
-        help
+        show_help
         exit 0
         ;;
     *)
@@ -157,3 +162,5 @@ then
     open_file "$(realpath "$1")" "$g"
     exit $?
 fi
+
+show_invalid
