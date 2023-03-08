@@ -47,9 +47,28 @@ function get_editor() {
     fi
 }
 
+# Escapes given string
+function escape_path() {
+    sed -e 's|\\|\\\\|g' -e 's|/|\\/|g' -e 's|*|\\*|g' -e 's|\.|\\\.|g' \
+        -e 's|\[|\\\[|g' -e 's|\]|\\\]|g' -e 's|\^|\\\^|g' -e 's|\$|\\\$|g' \
+        -e 's|(|\\(|g' -e 's|)|\\)|g'
+}
+
+# Saves usage to file given by MOLE_RC variable
+function save_usage() {
+    path="$(escape_path <<< $1)"
+    if [ $(grep -c "^$path" $MOLE_RC) -eq 0 ]
+    then
+        echo "$1;$(date +"%s")-${2:+$2,}" >> $MOLE_RC
+        exit
+    fi
+
+    sed -ri "s/($path;[^-]*)-(.*)/\1,$(date +"%s")-\2${2:+$2,}/g" $MOLE_RC
+}
+
 # Opens file with editor chosen by get_editor function
 function open_file() {
-    if [ -z $1 ] || [ ! -f $1 ]
+    if [ -z $1 ]
     then
         return 1
     fi
@@ -82,13 +101,6 @@ function create_file() {
     return 0
 }
 
-# Escapes given string
-function escape_path() {
-    sed -e 's|\\|\\\\|g' -e 's|/|\\/|g' -e 's|*|\\*|g' -e 's|\.|\\\.|g' \
-        -e 's|\[|\\\[|g' -e 's|\]|\\\]|g' -e 's|\^|\\\^|g' -e 's|\$|\\\$|g' \
-        -e 's|(|\\(|g' -e 's|)|\\)|g'
-}
-
 function list_file() {
     path="$(realpath "${1:-.}")"
 
@@ -105,11 +117,6 @@ function list_file() {
             for (i = 0; i < len; i++)
                 print grps[i]
         }' $MOLE_RC
-}
-
-# Saves usage to file given by MOLE_RC variable
-function save_usage() {
-    echo "$1;$(date +"%s")-$2" >> $MOLE_RC
 }
 
 function create_log() {
@@ -193,10 +200,5 @@ fi
 
 # mole [-g GROUP] FILE
 # Opens file, optional GROUP flag for opening to be assigned to
-if [ -f "$(realpath "$path")" ]
-then
-    open_file "$(realpath "$path")" "$g"
-    exit $?
-fi
-
-show_invalid
+open_file "$(realpath "$path")" "$g"
+exit $?
