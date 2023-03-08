@@ -62,6 +62,7 @@ function open_file() {
 }
 
 function open_dir() {
+    echo "Open dir not implemented"
     return 0
 }
 
@@ -81,8 +82,9 @@ function create_file() {
     return 0
 }
 
+# Saves usage to file given by MOLE_RC variable
 function save_usage() {
-    echo "$1 $2" >> $MOLE_RC
+    echo "$1;$(date +"%Y-%m-%d_%T")-$2" >> $MOLE_RC
 }
 
 function create_log() {
@@ -149,17 +151,23 @@ path="${1:-.}"
 # mole [-m] [FILTERS] [DIRECTORY]
 # Opens last edited with mole, corresponding to filters
 # if m flag is set, opens most edited file
-if [ -d "$(realpath "")" ]
+if [ -d "$(realpath "$path")" ]
 then
-    open_dir "$(realpath "$dir")"
+    open_dir "$(realpath "$path")"
     exit $?
+fi
+
+if [ ! -z $m ] || [ ! -z $a ] || [ ! -z $b ]
+then
+    show_invalid
+    exit 1
 fi
 
 # mole [-g GROUP] FILE
 # Opens file, optional GROUP flag for opening to be assigned to
-if [ -f "$(realpath "$1")" ]
+if [ -f "$(realpath "$path")" ]
 then
-    open_file "$(realpath "$1")" "$g"
+    open_file "$(realpath "$path")" "$g"
     exit $?
 fi
 
