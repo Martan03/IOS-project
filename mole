@@ -82,9 +82,34 @@ function create_file() {
     return 0
 }
 
+# Escapes given string
+function escape_path() {
+    sed -e 's|\\|\\\\|g' -e 's|/|\\/|g' -e 's|*|\\*|g' -e 's|\.|\\\.|g' \
+        -e 's|\[|\\\[|g' -e 's|\]|\\\]|g' -e 's|\^|\\\^|g' -e 's|\$|\\\$|g' \
+        -e 's|(|\\(|g' -e 's|)|\\)|g'
+}
+
+function list_file() {
+    path="$(realpath "${1:-.}")"
+
+    path="$(escape_path <<< $path)"
+
+    gawk '
+        BEGIN {
+            len = 0;
+        }
+        match($0, /(['$path'][^;]*);([^-]*)-(.*)/, a) {
+            grps[len++] = a[1];
+        }
+        END {
+            for (i = 0; i < len; i++)
+                print grps[i]
+        }' $MOLE_RC
+}
+
 # Saves usage to file given by MOLE_RC variable
 function save_usage() {
-    echo "$1;$(date +"%Y-%m-%d_%T")-$2" >> $MOLE_RC
+    echo "$1;$(date +"%s")-$2" >> $MOLE_RC
 }
 
 function create_log() {
@@ -126,7 +151,10 @@ case "$1" in
     list)
         shift
         parse_flags $*
-        echo "List not implemented"
+
+        ((OPTIND--))
+        shift $OPTIND
+        list_file $1
         exit 0;
         ;;
     secret-log)
