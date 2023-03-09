@@ -1,5 +1,9 @@
 #!/bin/bash
 
+echo "Zakomentovat před odevzdáním!!!!"
+MOLE_RC="/home/martan03/Documents/IOS/Projekt1/molerc"
+EDITOR="vim"
+
 POSIXLY_CORRECT=yes
 
 # Shows help
@@ -48,22 +52,48 @@ function get_editor() {
 }
 
 # Escapes given string
-function escape_path() {
+function escape() {
     sed -e 's|\\|\\\\|g' -e 's|/|\\/|g' -e 's|*|\\*|g' -e 's|\.|\\\.|g' \
         -e 's|\[|\\\[|g' -e 's|\]|\\\]|g' -e 's|\^|\\\^|g' -e 's|\$|\\\$|g' \
         -e 's|(|\\(|g' -e 's|)|\\)|g'
 }
 
-# Saves usage to file given by MOLE_RC variable
-function save_usage() {
-    path="$(escape_path <<< $1)"
-    if [ $(grep -c "^$path" $MOLE_RC) -eq 0 ]
+function valid_date() {
+    if [ -z $1 ]
     then
-        echo "$1;$(date +"%s")-${2:+$2,}" >> $MOLE_RC
-        exit
+        echo ""
+        return
+    elif [[ ! $1 =~ [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] ]]
+    then
+        printf "Invalid date format: %s (YYYY-MM-DD expected)\n" $1
+        exit 1
     fi
 
-    sed -ri "s/($path;[^-]*)-(.*)/\1,$(date +"%s")-\2${2:+$2,}/g" $MOLE_RC
+    date -d $1 +%s 2> /dev/null
+    if [ ! $? -eq 0 ]
+    then
+        printf "Invalid date: %s (YYYY-MM-DD)\n" $1
+        exit 1
+    fi
+}
+
+# Saves usage to file given by MOLE_RC variable
+function save_usage() {
+    path="$(escape <<< $1)"
+    grp="$(escape <<< "${2:+,$2,}")"
+    
+    if [ $(grep -c "^$path" $MOLE_RC) -eq 0 ]
+    then
+        echo "$1;$(date +"%s")-${2:+,$2,}" >> $MOLE_RC
+        return
+    fi
+
+    if [ $(grep -c "^$path.*$grp" $MOLE_RC) -gt 0 ]
+    then
+        grp=""
+    fi
+
+    sed -ri "s/($path;[^-]*)-(.*)/\1,$(date +"%s")-\2$grp/g" $MOLE_RC
 }
 
 # Opens file with editor chosen by get_editor function
@@ -102,21 +132,35 @@ function create_file() {
 }
 
 function list_file() {
-    path="$(realpath "${1:-.}")"
-
-    path="$(escape_path <<< $path)"
+    path="$(escape <<< $(realpath "${1:-.}"))"
+    group="$(escape <<< $2)"
 
     gawk '
         BEGIN {
-            len = 0;
+            len = 1;
         }
-        match($0, /(['$path'][^;]*);([^-]*)-(.*)/, a) {
-            grps[len++] = a[1];
+        match($0, /(['$path'][^;]*);([^-]*)-,(.*'$group'.*)/, a) {
+            path[len] = a[1];
+            time[len] = a[2];
+            grp[len++] = a[3];
         }
         END {
-            for (i = 0; i < len; i++)
-                print grps[i]
-        }' $MOLE_RC
+            for (i = 1; i < len; i++)
+            {
+                n = split(time[i], times, ",");
+                if (("'$a'" >= times[n]) && ("'$a'" != ""))
+                    continue;
+                if (("'$b'" <= times[1]) && ("'$b'" != ""))
+                    continue
+
+                split(substr(grp[i], 1, length(grp[i]) - 1), grps, ",");
+                n = asort(grps)
+                printf "%s: ", path[i];
+                for (j = 1; j < n; j++)
+                    printf "%s,", grps[j];
+                printf "%s\n", grps[n];
+            }
+        }' $MOLE_RC | sort
 }
 
 function create_log() {
@@ -134,10 +178,10 @@ function parse_flags() {
                 m=0
                 ;;
             a)
-                a=$OPTARG
+                a="$(valid_date $OPTARG)"
                 ;;
             b)
-                b=$OPTARG
+                b="$(valid_date $OPTARG)"
                 ;;
             *)
                 show_invalid
@@ -161,7 +205,8 @@ case "$1" in
 
         ((OPTIND--))
         shift $OPTIND
-        list_file $1
+
+        list_file "$1" "$g" "$a" "$b"
         exit 0;
         ;;
     secret-log)
