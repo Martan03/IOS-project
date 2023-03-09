@@ -33,22 +33,20 @@ function show_help() {
     echo "    In format YYYY-MM-DD"
 }
 
+# Prints given message to stderr
+function echo_err() {
+    1>&2 echo $1
+}
+
 # Shows invalid usage message
 function show_invalid() {
-    echo "Invalid usage. Type: 'mole -h' to show help"
+    echo_err "Invalid usage. Type: 'mole -h' to show help"
 }
 
 # Gets default editor
 # If EDITOR is set, it is used; else VISUAL; else vi
 function get_editor() {
-    editor="vi"
-    if [ ! -z "$EDITOR" ]
-    then
-        editor="$EDITOR"
-    elif [ ! -z "$VISUAL" ]
-    then
-        editor="$VISUAL"
-    fi
+    editor="${EDITOR:-${VISUAL:-vi}}"
 }
 
 # Escapes given string
@@ -58,6 +56,7 @@ function escape() {
         -e 's|(|\\(|g' -e 's|)|\\)|g'
 }
 
+# Checks if given date is valid and parses it to seconds
 function valid_date() {
     if [ -z $1 ]
     then
@@ -65,38 +64,42 @@ function valid_date() {
         return
     elif [[ ! $1 =~ [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] ]]
     then
-        printf "Invalid date format: %s (YYYY-MM-DD expected)\n" $1
+        echo_err <<< "Invalid date format: $1 (YYYY-MM-DD)"
         exit 1
     fi
 
     date -d $1 +%s 2> /dev/null
     if [ ! $? -eq 0 ]
     then
-        printf "Invalid date: %s (YYYY-MM-DD)\n" $1
+        echo_err "Invalid date: $1 (YYYY-MM-DD)"
         exit 1
     fi
 }
 
 # Saves usage to file given by MOLE_RC variable
 function save_usage() {
+    # Escapes path and group
     path="$(escape <<< $1)"
     grp="$(escape <<< "${2:+,$2,}")"
     
+    # If file is not in MOLE_RC yet, save it
     if [ $(grep -c "^$path" $MOLE_RC) -eq 0 ]
     then
         echo "$1;$(date +"%s")-${2:+,$2,}" >> $MOLE_RC
         return
     fi
 
+    # If file is already assigned to group, ignore group
     if [ $(grep -c "^$path.*$grp" $MOLE_RC) -gt 0 ]
     then
         grp=""
     fi
 
+    # Edit file info in MOLE_RC
     sed -ri "s/($path;[^-]*)-(.*)/\1,$(date +"%s")-\2$grp/g" $MOLE_RC
 }
 
-# Opens file with editor chosen by get_editor function
+# Opens file with text editor
 function open_file() {
     if [ -z $1 ]
     then
@@ -110,7 +113,14 @@ function open_file() {
     return $?
 }
 
+# Opens last edited file meeting filters in given folder
+# With -m flag opens most edited file meeting filters
 function open_dir() {
+    if [ ! -d $(realpath -m ${1:-.}) ]
+    then
+        echo_err "Error - file doesn't exist: $1"
+        exit 1
+    fi
     echo "Open dir not implemented"
     return 0
 }
@@ -131,16 +141,23 @@ function create_file() {
     return 0
 }
 
+# Lists all the files in MOLE_RC meeting the filters
 function list_file() {
+    # Escapes path and group (default path value is '.')
     path="$(escape <<< $(realpath "${1:-.}"))"
     group="$(escape <<< $2)"
 
+    # Regex each line into 3 groups (filename, dates, groups)
+    # Checks if file meets the filters and prints it
     gawk '
         BEGIN {
             len = 1;
+            longest = 1;
         }
-        match($0, /(['$path'][^;]*);([^-]*)-,(.*'$group'.*)/, a) {
+        match($0, /('$path'\/[^;\/]*);([^-]*)-,(.*'$group'.*)$/, a) {
             path[len] = a[1];
+            if (length(path[len]) > longest)
+                longest = length(path[len]);
             time[len] = a[2];
             grp[len++] = a[3];
         }
@@ -153,9 +170,14 @@ function list_file() {
                 if (("'$b'" <= times[1]) && ("'$b'" != ""))
                     continue
 
+                printf "%s: ", path[i];
+                for (j = 0; j < longest - length(path[i]); j++)
+                    printf " ";
+
                 split(substr(grp[i], 1, length(grp[i]) - 1), grps, ",");
                 n = asort(grps)
-                printf "%s: ", path[i];
+                if (!n)
+                    printf "-"
                 for (j = 1; j < n; j++)
                     printf "%s,", grps[j];
                 printf "%s\n", grps[n];
@@ -167,6 +189,7 @@ function create_log() {
     return 0
 }
 
+# Uses getopts to parse flags
 function parse_flags() {
     while getopts :g:ma:b: OPTION
     do
@@ -191,11 +214,13 @@ function parse_flags() {
     done
 }
 
+# Checks if MOLE_RC var is set
 if [ -z $MOLE_RC ]
 then
     echo "Variable MOLE_RC is not set."
     exit 1
 fi
+# Create if it doesn't exist
 create_file $MOLE_RC
 
 case "$1" in
