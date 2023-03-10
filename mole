@@ -56,14 +56,39 @@ function escape() {
         -e 's|(|\\(|g' -e 's|)|\\)|g'
 }
 
+# Gets files that were edited matching given filters
+# $1 - a, $2 - b, $3 - g
+function edited_filtered() {
+    group="$(echo $3 | escape)"
+    awk 'match($0, /^(.*);([^-]*)-(.*'$group'.*)$/, a) {
+        n = split(a[2], dates, ",");
+        if (("'$1'" < dates[n] || "'$1'" == "") && 
+            ("'$2'" > dates[1] || "'$2'" == ""))
+            printf "%s;%s-%s\n", a[1], a[2], a[3];
+    }' $MOLE_RC
+}
+
+# Gets files that exist
+function edited_exist() {
+    awk 'match($0, /^(.*);([^-]*)-(.*)$/, a) {
+        if (!system("test -f " a[1]))
+            printf "%s;%s-%s\n", a[1], a[2], a[3];
+    }'
+}
+
+# Gets last edited file
+function last_edited() {
+    awk 'match($0, /^(.*);([^-]*)-.*$/, a) {
+        n = split(a[2], dates, ",");
+        printf "%s %s", dates[n], a[1];
+    }' | sort | tail -n 1 | sed -r 's/.* (.*)$/\1/'
+}
+
 # Gets most edited file
 function most_edited() {
-    group=""
-    awk '
-        match($0, /('$1'\/[^;\/]*);([^-]*)-,.*'$group'.*$/, a) {
-            n = split(a[2], date, ",")
-            printf "%d %s\n", n, a[1];
-        }' $MOLE_RC | sort | tail -n 1 | sed  -r 's/[0-9][0-9]* (.*)$/\1/'
+    awk 'match($0, /^(.*);([^-]*)-,.*$/, a) {
+        printf "%d %s\n", split(a[2], date, ","), a[1];
+    }' $MOLE_RC | sort | tail -n 1 | sed  -r 's/[0-9][0-9]* (.*)$/\1/'
 }
 
 # Checks if given date is valid and parses it to seconds
@@ -153,33 +178,23 @@ function create_file() {
 
 # Lists all the files in MOLE_RC meeting the filters
 function list_file() {
-    # Escapes path and group (default path value is '.')
+    # Escapes path
     path="$(escape <<< $(realpath "${1:-.}"))"
-    group="$(escape <<< $2)"
 
-    # Regex each line into 3 groups (filename, dates, groups)
-    # Checks if file meets the filters and prints it
-    gawk '
+    edited_filtered "$3" "$4" "$2" | gawk '
         BEGIN {
             len = 1;
             longest = 1;
         }
-        match($0, /('$path'\/[^;\/]*);([^-]*)-,(.*'$group'.*)$/, a) {
+        match($0, /^('$path'\/[^;\/]*);([^-]*)-,(.*)$/, a) {
             path[len] = a[1];
             if (length(path[len]) > longest)
                 longest = length(path[len]);
-            time[len] = a[2];
             grp[len++] = a[3];
         }
         END {
             for (i = 1; i < len; i++)
             {
-                n = split(time[i], times, ",");
-                if (("'$a'" >= times[n]) && ("'$a'" != ""))
-                    continue;
-                if (("'$b'" <= times[1]) && ("'$b'" != ""))
-                    continue
-
                 printf "%s: ", path[i];
                 for (j = 0; j < longest - length(path[i]); j++)
                     printf " ";
@@ -192,7 +207,7 @@ function list_file() {
                     printf "%s,", grps[j];
                 printf "%s\n", grps[n];
             }
-        }' $MOLE_RC | sort
+        }' | sort
 }
 
 function create_log() {
@@ -224,8 +239,8 @@ function parse_flags() {
     done
 }
 
-most_edited $(escape <<< "/home/martan03/Documents/IOS/Projekt1")
-exit
+#most_edited $(escape <<< "/home/martan03/Documents/IOS/Projekt1")
+#exit
 
 # Checks if MOLE_RC var is set
 if [ -z $MOLE_RC ]
