@@ -57,7 +57,7 @@ function escape() {
 }
 
 # Gets files that were edited matching given filters
-# $1 - a, $2 - b, $3 - g
+# $1 - g, $2 - a, $3 - b
 function edited_filtered() {
     group="$(echo $1 | escape)"
     awk 'match($0, /^(.*);([^-]*)-(.*'$group'.*)$/, a) {
@@ -136,11 +136,12 @@ function save_usage() {
 
 # Opens file with text editor
 function open_file() {
+    echo "$1"
     if [ -z $1 ]
     then
+        echo_err "Error openning file"
         return 1
     fi
-
     save_usage $1 $2
 
     get_editor
@@ -159,9 +160,12 @@ function open_dir() {
     
     if [ $m -eq 0 ]
     then
-        edited_filtered "$2" "$3" "$4" | edited_exist | most_edited
+        open_file "$(edited_filtered "$2" "$3" "$4" | \
+            edited_exist | most_edited)" ""
     else
-        edited_filtered "$2" "$3" "$4" | edited_exist | last_edited
+        edited_filtered "$2" "$3" "$4"
+        open_file "$(edited_filtered "$2" "$3" "$4" | \
+            edited_exist | last_edited)" ""
     fi
 }
 
@@ -186,7 +190,7 @@ function list_file() {
     # Escapes path
     path="$(escape <<< $(realpath "${1:-.}"))"
 
-    edited_filtered "$3" "$4" "$2" | gawk '
+    edited_filtered "$2" "$3" "$4" | gawk '
         BEGIN {
             len = 1;
             longest = 1;
