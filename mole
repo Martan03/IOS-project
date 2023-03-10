@@ -59,11 +59,11 @@ function escape() {
 # Gets files that were edited matching given filters
 # $1 - a, $2 - b, $3 - g
 function edited_filtered() {
-    group="$(echo $3 | escape)"
+    group="$(echo $1 | escape)"
     awk 'match($0, /^(.*);([^-]*)-(.*'$group'.*)$/, a) {
         n = split(a[2], dates, ",");
-        if (("'$1'" < dates[n] || "'$1'" == "") && 
-            ("'$2'" > dates[1] || "'$2'" == ""))
+        if (("'$2'" < dates[n] || "'$2'" == "") && 
+            ("'$3'" > dates[1] || "'$3'" == ""))
             printf "%s;%s-%s\n", a[1], a[2], a[3];
     }' $MOLE_RC
 }
@@ -157,7 +157,12 @@ function open_dir() {
         exit 1
     fi
     
-
+    if [ $m -eq 0 ]
+    then
+        edited_filtered "$2" "$3" "$4" | edited_exist | most_edited
+    else
+        edited_filtered "$2" "$3" "$4" | edited_exist | last_edited
+    fi
 }
 
 # Create file in given directory
@@ -216,6 +221,7 @@ function create_log() {
 
 # Uses getopts to parse flags
 function parse_flags() {
+    m=1
     while getopts :g:ma:b: OPTION
     do
         case "${OPTION}" in
