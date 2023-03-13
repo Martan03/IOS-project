@@ -69,9 +69,13 @@ function edited_filtered() {
             a[3] = substr(a[3], 1, length(a[3]) - 1)
             for (i = 1; i <= m; i++) {
                 c = split(a[3], g, ",");
-                for (j = 1; j <= c; j++)
-                    if (g[j] == grps[i])
+                for (j = 1; j <= c; j++) {
+                    if (g[j] == grps[i]) {
                         printf "%s;%s-,%s,\n", a[1], a[2], a[3];
+                        i = m + 1;
+                        break;
+                    }
+                }
             }
             if (m == 0)
                 printf "%s;%s-,%s,\n", a[1], a[2], a[3];
@@ -201,8 +205,6 @@ function list_file() {
     # Escapes path
     path="$(escape <<< $(realpath "${1:-.}"))"
 
-    edited_filtered "$2" "$3" "$4"
-    exit
     edited_filtered "$2" "$3" "$4" | gawk '
         BEGIN {
             len = 1;
