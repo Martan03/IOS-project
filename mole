@@ -5,6 +5,7 @@ MOLE_RC="/home/martan03/Documents/IOS/Projekt1/molerc"
 EDITOR="vim"
 
 POSIXLY_CORRECT=yes
+LOG="${HOME}/.mole"
 
 # Shows help
 function show_help() {
@@ -189,13 +190,13 @@ function create_file() {
     if [ -z $1 ]
     then
         return 1
-    elif [ -f "$(realpath $1)" ]
+    elif [ -f "$(realpath -m $1)" ]
     then
         return 0
     fi
 
     mkdir -p "$(realpath -m "$(dirname "$1")")"
-    touch "$(realpath "$1")"
+    touch "$(realpath -m "$1")"
 
     return 0
 }
@@ -234,8 +235,35 @@ function list_file() {
         }' | sort
 }
 
+function edited_log() {
+    awk 'match($0, /^(.*);([^-]*)-.*$/, a) {
+        n = split(a[2], dates, ",");
+        printf "%s", a[1];
+        for (i = 1; i <= n; i++)
+            printf ";%s", dates[i];
+        printf "\n";
+    }'
+}
+
 function create_log() {
-    return 0
+    log="${LOG}/log_${USER}_$(date +"%F_%H-%M-%S").bz2"
+    #create_file "$log"
+    files="$(edited_filtered "" "$1" "$2" | edited_exist | edited_log)"
+    if [ -z "${3+x}" ]
+    then
+        echo "$files" | sort | bzip2 -c > "$log" 
+        return
+    fi
+    shift 2
+    res=""
+    for i do
+        path="$(echo "$i" | escape)"
+        res+="$(echo "$files" | \
+        awk '/^('$path'\/[^;\/]*);.*$/ {
+            print $0;
+        }')"$'\n'
+    done
+    echo "$res" | sed -r '/^\s*$/d' | sort | bzip2 -c > "$log"
 }
 
 # Uses getopts to parse flags
@@ -263,9 +291,6 @@ function parse_flags() {
         esac
     done
 }
-
-#most_edited $(escape <<< "/home/martan03/Documents/IOS/Projekt1")
-#exit
 
 # Checks if MOLE_RC var is set
 if [ -z $MOLE_RC ]
