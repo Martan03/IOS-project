@@ -9,34 +9,25 @@ LOG="${HOME}/.mole"
 
 # Shows help
 function show_help() {
-    echo "Welcome to MOLE by xsleza26!"
-    echo "Usage:"
-    echo "  mole -h"
-    echo "    Displays help"
-    echo "  mole [-g GROUP] FILE"
-    echo "    Opens file, file opening will be assigned to the group if given"
-    echo "  mole [-m] [FILTERS] [DIRECTORY]"
-    echo "    Opens file from given directory (or current directory)"
-    echo "    If no filters, last edited file will be opened"
-    echo "  mole list [FILTERS] [DIRECTORY]"
-    echo "    Lists files that were opened/edited with MOLE"
-    echo "  mole secret-log [-b DATE] [-a DATE] [DIRECTORY1 [DIRECTORY2] [...]]"
-    echo "    Displays a secret log"
-    echo ""
-    echo "FILTERS:"
-    echo "  [-g GROUP1[,GROUP2][,...]"
-    echo "     Group specification"
-    echo "  [-a DATE]"
-    echo "    Records of the opened/edited files after this date"
-    echo "  [-b DATE]"
-    echo "    Records of the opened/edited files before this date"
-    echo "  DATE"
-    echo "    In format YYYY-MM-DD"
+    printf "Welcome to MOLE by xsleza26!\n\nUsage:\n"
+    printf "%2smole -h\n%4sDisplays help\n\n"
+    printf "%2smole [-g GROUP] FILE\n"
+    printf "%4sOpens entered file, opening is assigned to given group\n\n"
+    printf "%2smole [-m] [FILTERS] [DIRECTORY]\n"
+    printf "%4sOpens file in given directory (current directory by default)\n"
+    printf "%4sOpens last edited file, if -m given, opens most edited file\n\n"
+    printf "%2smole list [FILTERS] [DIRECTORY]\n"
+    printf "%4sLists opened/edited files using MOLE\n\n"
+    printf "FILTERS:\n"
+    printf "%2s[-g GROUP[,GROUP2[,...]]]\n%4sFiles with specified groups\n\n"
+    printf "%2s[-a DATE]\n%4sFiles after this date\n\n"
+    printf "%2s[-b DATE]\n%4sFiles before this date\n\n"
+    printf "%2sDATE\n%4sIn format YYYY-MM-DD\n"
 }
 
 # Prints given message to stderr
 function echo_err() {
-    1>&2 echo $1
+    1>&2 echo "$1"
 }
 
 # Shows invalid usage message
@@ -84,6 +75,15 @@ function edited_filtered() {
     }' $MOLE_RC
 }
 
+# Gets files that were edited/opened in given folder
+# $1 - folder to find files in
+function edited_in_folder() {
+    path="${path:=".*"}"
+    awk 'match($0, /^'$path'\/[^;\/]*;[^-]*-,.*$/, a) {
+        print a[0];
+    }'
+}
+
 # Gets files that exist
 function edited_exist() {
     awk 'match($0, /^(.*);([^-]*)-(.*)$/, a) {
@@ -104,7 +104,7 @@ function last_edited() {
 function most_edited() {
     awk 'match($0, /^(.*);([^-]*)-,.*$/, a) {
         printf "%d %s\n", split(a[2], date, ","), a[1];
-    }' $MOLE_RC | sort | tail -n 1 | sed  -r 's/[0-9][0-9]* (.*)$/\1/'
+    }' | sort | tail -n 1 | sed  -r 's/[0-9][0-9]* (.*)$/\1/'
 }
 
 # Checks if given date is valid and parses it to seconds
@@ -151,8 +151,8 @@ function save_usage() {
 }
 
 # Opens file with text editor
+# $1 - path + filename, $2 - group
 function open_file() {
-    echo "$1"
     if [ -z $1 ]
     then
         echo_err "Error openning file"
@@ -167,25 +167,28 @@ function open_file() {
 
 # Opens last edited file meeting filters in given folder
 # With -m flag opens most edited file meeting filters
+# $1 - directory to open file in, $2 - g, $3 - a, $4 - b
 function open_dir() {
-    if [ ! -d $(realpath -m ${1:-.}) ]
+    path="$(realpath -m ${1:-.})"
+    if [ ! -d "$path" ]
     then
         echo_err "Error - file doesn't exist: $1"
         exit 1
     fi
-    
-    if [ $m -eq 0 ]
+    path="$(echo "$path" | escape)"
+
+    if [ "$m" == 0 ]
     then
         open_file "$(edited_filtered "$2" "$3" "$4" | \
-            edited_exist | most_edited)" ""
+            edited_in_folder "$path" | edited_exist | most_edited)" ""
     else
-        edited_filtered "$2" "$3" "$4"
         open_file "$(edited_filtered "$2" "$3" "$4" | \
-            edited_exist | last_edited)" ""
+            edited_in_folder "$path" | edited_exist | last_edited)" ""
     fi
 }
 
 # Create file in given directory
+# $1 - path + filename
 function create_file() {
     if [ -z $1 ]
     then
@@ -202,9 +205,10 @@ function create_file() {
 }
 
 # Lists all the files in MOLE_RC meeting the filters
-function list_file() {
+# $1 - folder to list files in, $2 - g, $3 - a, $4 - bs
+function list_files() {
     # Escapes path
-    path="$(escape <<< $(realpath "${1:-.}"))"
+    path="$(echo "$(realpath -m "${1:-.}")" | escape)"
 
     edited_filtered "$2" "$3" "$4" | gawk '
         BEGIN {
@@ -220,9 +224,7 @@ function list_file() {
         END {
             for (i = 1; i < len; i++)
             {
-                printf "%s: ", path[i];
-                for (j = 0; j < longest - length(path[i]); j++)
-                    printf " ";
+                printf "%s: %" longest - length(path[i]) "s", path[i], "";
 
                 split(substr(grp[i], 1, length(grp[i]) - 1), grps, ",");
                 n = asort(grps)
@@ -268,7 +270,6 @@ function create_log() {
 
 # Uses getopts to parse flags
 function parse_flags() {
-    m=1
     while getopts :g:ma:b: OPTION
     do
         case "${OPTION}" in
@@ -303,21 +304,42 @@ create_file $MOLE_RC
 
 case "$1" in
     list)
+        # parse arguments
+        shift
+        parse_flags $*
+        ((OPTIND--))
+        shift $OPTIND
+
+        # check if correct arguments were given
+        if [ ! -z $m ] || [ "$#" -gt 1 ]
+        then
+            show_invalid
+            exit 1
+        fi
+
+        list_files "$1" "$g" "$a" "$b"
+        exit 0
+        ;;
+    secret-log)
         shift
         parse_flags $*
 
         ((OPTIND--))
         shift $OPTIND
 
-        list_file "$1" "$g" "$a" "$b"
-        exit 0;
-        ;;
-    secret-log)
-        shift
-        echo "You found my epic secret log"
-        exit 0;
+        echo "$*"
+        #create_log "$a" "$b" $*
+        exit 0
         ;;
     -h)
+        # if multiple arguments given, show invalid usage
+        shift
+        if [ "$#" -ne 0 ]
+        then
+            show_invalid
+            exit 1
+        fi
+
         show_help
         exit 0
         ;;
@@ -334,19 +356,27 @@ path="${1:-.}"
 # mole [-m] [FILTERS] [DIRECTORY]
 # Opens last edited with mole, corresponding to filters
 # if m flag is set, opens most edited file
-if [ -d "$(realpath "$path")" ]
+if [ -d "$(realpath -m "$path")" ]
 then
-    open_dir "$(realpath "$path")"
+    # Check if number of arguments is valid
+    if [ "$#" -gt 1 ]
+    then
+        show_invalid
+        exit 1
+    fi
+    open_dir "$(realpath -m "$path")" "$g" "$a" "$b"
     exit $?
 fi
 
-if [ ! -z $m ] || [ ! -z $a ] || [ ! -z $b ]
+# mole [-g GROUP] FILE
+# Opens file, optional GROUP flag for opening to be assigned to
+
+# Check arguments
+if [ ! -z $m ] || [ ! -z $a ] || [ ! -z $b ] || [ "$#" -ne 1 ]
 then
     show_invalid
     exit 1
 fi
 
-# mole [-g GROUP] FILE
-# Opens file, optional GROUP flag for opening to be assigned to
-open_file "$(realpath "$path")" "$g"
+open_file "$(realpath -m "$path")" "$g"
 exit $?
