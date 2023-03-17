@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/bash
 
 echo "Zakomentovat před odevzdáním!!!!"
 MOLE_RC="/home/martan03/Documents/IOS/Projekt1/molerc"
@@ -26,6 +26,7 @@ function show_help() {
 }
 
 # Prints given message to stderr
+# $1 - message to be printed
 function echo_err() {
     1>&2 echo "$1"
 }
@@ -41,7 +42,7 @@ function get_editor() {
     editor="${EDITOR:-${VISUAL:-vi}}"
 }
 
-# Escapes given string
+# Escapes given string so it can be used in regex
 function escape() {
     sed -e 's|\\|\\\\|g' -e 's|/|\\/|g' -e 's|*|\\*|g' -e 's|\.|\\\.|g' \
         -e 's|\[|\\\[|g' -e 's|\]|\\\]|g' -e 's|\^|\\\^|g' -e 's|\$|\\\$|g' \
@@ -107,41 +108,54 @@ function most_edited() {
     }' | sort | tail -n 1 | sed  -r 's/[0-9][0-9]* (.*)$/\1/'
 }
 
+# Gets files in format for log
+function edited_log() {
+    awk 'match($0, /^(.*);([^-]*)-.*$/, a) {
+        n = split(a[2], dates, ",");
+        printf "%s", a[1];
+        for (i = 1; i <= n; i++)
+            printf ";%s", strftime("%F_%H-%M-%S", dates[i]);
+        printf "\n";
+    }'
+}
+
 # Checks if given date is valid and parses it to seconds
+# $1 - date to be validated
 function valid_date() {
     if [ -z $1 ]
     then
         echo ""
-        return
+        return 0
     elif [[ ! $1 =~ [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] ]]
     then
-        echo_err <<< "Invalid date format: $1 (YYYY-MM-DD)"
-        exit 1
+        echo_err "Invalid date format: $1 (YYYY-MM-DD)"
+        return 1
     fi
 
     date -d $1 +%s 2> /dev/null
     if [ ! $? -eq 0 ]
     then
         echo_err "Invalid date: $1 (YYYY-MM-DD)"
-        exit 1
+        return 1
     fi
 }
 
 # Saves usage to file given by MOLE_RC variable
+# $1 - file path, $2 - group
 function save_usage() {
     # Escapes path and group
-    path="$(escape <<< $1)"
-    grp="$(escape <<< "${2:+,$2,}")"
+    path="$(echo "$1" | escape)"
+    grp="$(echo "${2:+$2,}" | escape)"
     
     # If file is not in MOLE_RC yet, save it
-    if [ $(grep -c "^$path" $MOLE_RC) -eq 0 ]
+    if [ $(grep -c "^$path;" $MOLE_RC) -eq 0 ]
     then
         echo "$1;$(date +"%s")-${2:+,$2,}" >> $MOLE_RC
         return
     fi
 
     # If file is already assigned to group, ignore group
-    if [ $(grep -c "^$path.*$grp" $MOLE_RC) -gt 0 ]
+    if [ $(grep -c "^$path;.*,$grp" $MOLE_RC) -gt 0 ]
     then
         grp=""
     fi
@@ -151,7 +165,7 @@ function save_usage() {
 }
 
 # Opens file with text editor
-# $1 - path + filename, $2 - group
+# $1 - file path, $2 - group
 function open_file() {
     if [ -z $1 ]
     then
@@ -188,7 +202,7 @@ function open_dir() {
 }
 
 # Create file in given directory
-# $1 - path + filename
+# $1 - file path
 function create_file() {
     if [ -z $1 ]
     then
@@ -215,7 +229,7 @@ function list_files() {
             len = 1;
             longest = 1;
         }
-        match($0, /^('$path'\/[^;\/]*);([^-]*)-,(.*)$/, a) {
+        match($0, /^'$path'\/([^;\/]*);([^-]*)-,(.*)$/, a) {
             path[len] = a[1];
             if (length(path[len]) > longest)
                 longest = length(path[len]);
@@ -237,16 +251,8 @@ function list_files() {
         }' | sort
 }
 
-function edited_log() {
-    awk 'match($0, /^(.*);([^-]*)-.*$/, a) {
-        n = split(a[2], dates, ",");
-        printf "%s", a[1];
-        for (i = 1; i <= n; i++)
-            printf ";%s", dates[i];
-        printf "\n";
-    }'
-}
-
+# Creates log
+# $1 - a, $2 - b, ... directories
 function create_log() {
     log="${LOG}/log_${USER}_$(date +"%F_%H-%M-%S").bz2"
     #create_file "$log"
@@ -281,9 +287,17 @@ function parse_flags() {
                 ;;
             a)
                 a="$(valid_date $OPTARG)"
+                if [ ! $a ]
+                then
+                    exit 1
+                fi
                 ;;
             b)
                 b="$(valid_date $OPTARG)"
+                if [ ! $b ]
+                then
+                    exit 1
+                fi
                 ;;
             *)
                 show_invalid
@@ -321,14 +335,20 @@ case "$1" in
         exit 0
         ;;
     secret-log)
+        # parse arguments
         shift
         parse_flags $*
-
         ((OPTIND--))
         shift $OPTIND
 
-        echo "$*"
-        #create_log "$a" "$b" $*
+        # check if correct arguments were given
+        if [ ! -z $m ] || [ ! -z $g ]
+        then
+            show_invalid
+            exit 1
+        fi
+        
+        create_log "$a" "$b" $@
         exit 0
         ;;
     -h)
