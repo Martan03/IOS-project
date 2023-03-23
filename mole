@@ -1,9 +1,5 @@
 #!/usr/bin/bash
 
-echo "Zakomentovat před odevzdáním!!!!"
-MOLE_RC="/home/martan03/Documents/IOS/Projekt1/molerc"
-EDITOR="vim"
-
 POSIXLY_CORRECT=yes
 LOG="${HOME}/.mole"
 
@@ -77,10 +73,10 @@ function edited_filtered() {
 }
 
 # Gets files that were edited/opened in given folder
-# $1 - folder to find files in
+# $1 - folder to find files in, $2 - r
 function edited_in_folder() {
-    path="${path:=".*"}"
-    awk 'match($0, /^'$path'\/[^;\/]*;[^-]*-,.*$/, a) {
+    local path="${path:=".*"}"
+    awk 'match($0, /^'$path'\/[^;'${2:-\/}']*;[^-]*-,.*$/, a) {
         print a[0];
     }'
 }
@@ -144,13 +140,13 @@ function valid_date() {
 # $1 - file path, $2 - group
 function save_usage() {
     # Escapes path and group
-    path="$(echo "$1" | escape)"
-    grp="$(echo "${2:+$2,}" | escape)"
+    local path="$(echo "$1" | escape)"
+    local grp="$(echo "${2:+$2,}" | escape)"
     
     # If file is not in MOLE_RC yet, save it
     if [ $(grep -c "^$path;" $MOLE_RC) -eq 0 ]
     then
-        echo "$1;$(date +"%s")-${2:+,$2,}" >> $MOLE_RC
+        echo "$1;$(date +"%s")-,${2:+$2,}" >> $MOLE_RC
         return
     fi
 
@@ -181,24 +177,25 @@ function open_file() {
 
 # Opens last edited file meeting filters in given folder
 # With -m flag opens most edited file meeting filters
-# $1 - directory to open file in, $2 - g, $3 - a, $4 - b
+# $1 - directory to open file in, $2 - g, $3 - a, $4 - b, $5 - r
 function open_dir() {
-    path="$(realpath -m ${1:-.})"
+    local path="$(realpath -m ${1:-.})"
     if [ ! -d "$path" ]
     then
         echo_err "Error - file doesn't exist: $1"
-        exit 1
+        return 1
     fi
     path="$(echo "$path" | escape)"
 
     if [ "$m" == 0 ]
     then
         open_file "$(edited_filtered "$2" "$3" "$4" | \
-            edited_in_folder "$path" | edited_exist | most_edited)" ""
+            edited_in_folder "$path" "$r" | edited_exist | most_edited)" ""
     else
         open_file "$(edited_filtered "$2" "$3" "$4" | \
-            edited_in_folder "$path" | edited_exist | last_edited)" ""
+            edited_in_folder "$path" "$r" | edited_exist | last_edited)" ""
     fi
+    return $?
 }
 
 # Create file in given directory
@@ -219,17 +216,17 @@ function create_file() {
 }
 
 # Lists all the files in MOLE_RC meeting the filters
-# $1 - folder to list files in, $2 - g, $3 - a, $4 - bs
+# $1 - folder to list files in, $2 - g, $3 - a, $4 - b, $5 - r
 function list_files() {
     # Escapes path
-    path="$(echo "$(realpath -m "${1:-.}")" | escape)"
+    local path="$(echo "$(realpath -m "${1:-.}")" | escape)"
 
     edited_filtered "$2" "$3" "$4" | gawk '
         BEGIN {
             len = 1;
             longest = 1;
         }
-        match($0, /^'$path'\/([^;\/]*);([^-]*)-,(.*)$/, a) {
+        match($0, /^'$path'\/([^'${5:-\/}';]*);([^-]*)-,(.*)$/, a) {
             path[len] = a[1];
             if (length(path[len]) > longest)
                 longest = length(path[len]);
@@ -252,22 +249,23 @@ function list_files() {
 }
 
 # Creates log
-# $1 - a, $2 - b, ... directories
+# $1 - a, $2 - b, $3 - r, ... directories
 function create_log() {
-    log="${LOG}/log_${USER}_$(date +"%F_%H-%M-%S").bz2"
-    #create_file "$log"
-    files="$(edited_filtered "" "$1" "$2" | edited_exist | edited_log)"
-    if [ -z "${3+x}" ]
+    local log="${LOG}/log_${USER}_$(date +"%F_%H-%M-%S").bz2"
+    create_file "$log"
+    local files="$(edited_filtered "" "$1" "$2" | edited_exist | edited_log)"
+    if [ -z "${4+x}" ]
     then
         echo "$files" | sort | bzip2 -c > "$log" 
         return
     fi
-    shift 2
-    res=""
+    local r=$3
+    shift 3
+    local res=""
     for i do
-        path="$(echo "$i" | escape)"
+        local path="$(echo "$(realpath -m $i)" | escape)"
         res+="$(echo "$files" | \
-        awk '/^('$path'\/[^;\/]*);.*$/ {
+        awk '/^('$path'\/[^;'${r:-\/}']*);.*$/ {
             print $0;
         }')"$'\n'
     done
@@ -276,7 +274,7 @@ function create_log() {
 
 # Uses getopts to parse flags
 function parse_flags() {
-    while getopts :g:ma:b: OPTION
+    while getopts :g:ma:b:r OPTION
     do
         case "${OPTION}" in
             g)
@@ -298,6 +296,9 @@ function parse_flags() {
                 then
                     exit 1
                 fi
+                ;;
+            r)
+                r=0
                 ;;
             *)
                 show_invalid
@@ -331,7 +332,7 @@ case "$1" in
             exit 1
         fi
 
-        list_files "$1" "$g" "$a" "$b"
+        list_files "$1" "$g" "$a" "$b" "$r"
         exit 0
         ;;
     secret-log)
@@ -348,7 +349,7 @@ case "$1" in
             exit 1
         fi
         
-        create_log "$a" "$b" $@
+        create_log "$a" "$b" "$r" $@
         exit 0
         ;;
     -h)
@@ -384,7 +385,7 @@ then
         show_invalid
         exit 1
     fi
-    open_dir "$(realpath -m "$path")" "$g" "$a" "$b"
+    open_dir "$(realpath -m "$path")" "$g" "$a" "$b" "$r"
     exit $?
 fi
 
