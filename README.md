@@ -28,43 +28,50 @@ Citlivé dokumenty jsou v kontrarozvědce zásadně uchovávány na serverech a 
 
 - `-h` – Vypíše nápovědu k použití skriptu *(volba `secret-log` by neměla být v nápovědě uvedena; nechceme krtka upozornit, že sbíráme informace)*.
 - `mole [-g GROUP] FILE` – Zadaný soubor bude otevřen.
-  - Pokud byl zadán přepínač -g, dané otevření souboru bude zároveň přiřazeno do skupiny s názvem GROUP. GROUP může být název jak existující, tak nové skupiny.
-mole [-m] [FILTERS] [DIRECTORY] – Pokud DIRECTORY odpovídá existujícímu adresáři, skript z daného adresáře vybere soubor, který má být otevřen.
-Pokud nebyl zadán adresář, předpokládá se aktuální adresář.
-Pokud bylo v daném adresáři editováno skriptem více souborů, vybere se soubor, který byl pomocí skriptu otevřen (editován) jako poslední.
-Pokud byl zadán argument -m, tak skript vybere soubor, který byl pomocí skriptu otevřen (editován) nejčastěji.
-Pokud bude při použití přepínače -m nalezeno více souborů se stejným maximálním počtem otevření, může mole vybrat kterýkoliv z nich.
-Výběr souboru může být dále ovlivněn zadanými filtry FILTERS.
-Pokud nebyl v daném adresáři otevřen (editován) ještě žádný soubor, případně žádný soubor nevyhovuje zadaným filtrům, jedná se o chybu.
-mole list [FILTERS] [DIRECTORY] – Skript zobrazí seznam souborů, které byly v daném adresáři otevřeny (editovány) pomocí skriptu.
-Pokud nebyl zadán adresář, předpokládá se aktuální adresář.
-Seznam souborů může být filtrován pomocí FILTERS.
-Seznam souborů bude lexikograficky seřazen a každý soubor bude uveden na samostatném řádku.
-Každý řádek bude mít formát FILENAME:<INDENT>GROUP_1,GROUP_2,..., kde FILENAME je jméno souboru (i s jeho případnými příponami), <INDENT> je počet mezer potřebných k zarovnání a GROUP_* jsou názvy skupin, u kterých je soubor evidován.
-Seznam skupin bude lexikograficky seřazen.
-Pokud budou skupiny upřesněny pomocí přepínače -g (viz sekce FILTRY), uvažujte při výpisu souborů a skupin pouze záznamy patřící do těchto skupin.
-Pokud soubor nepatří do žádné skupiny, bude namísto seznamu skupin vypsán pouze znak -.
-Minimální počet mezer použitých k zarovnání (INDENT) je jedna. Každý řádek bude zarovnán tak, aby seznam skupin začínal na stejné pozici. Tedy např:
+  - Pokud byl zadán přepínač `-g`, dané otevření souboru bude zároveň přiřazeno do skupiny s názvem `GROUP`. `GROUP` může být název jak existující, tak nové skupiny.
+- `mole [-m] [FILTERS] [DIRECTORY]` – Pokud `DIRECTORY` odpovídá existujícímu adresáři, skript z daného adresáře vybere soubor, který má být otevřen.
+  - Pokud nebyl zadán adresář, předpokládá se aktuální adresář.
+  - Pokud bylo v daném adresáři editováno skriptem více souborů, vybere se soubor, který byl pomocí skriptu otevřen *(editován)* jako **poslední**.
+  - Pokud byl zadán argument `-m`, tak skript vybere soubor, který byl pomocí skriptu otevřen *(editován)* nejčastěji.
+    - Pokud bude při použití přepínače `-m` nalezeno více souborů se stejným maximálním počtem otevření, může `mole` vybrat kterýkoliv z nich.
+  - Výběr souboru může být dále ovlivněn zadanými filtry `FILTERS`.
+  - Pokud nebyl v daném adresáři otevřen *(editován)* ještě žádný soubor, případně žádný soubor nevyhovuje zadaným filtrům, jedná se o chybu.
+- `mole list [FILTERS] [DIRECTORY]` – Skript zobrazí seznam souborů, které byly v daném adresáři otevřeny *(editovány)* pomocí skriptu.
+  - Pokud nebyl zadán adresář, předpokládá se aktuální adresář.
+  - Seznam souborů může být filtrován pomocí `FILTERS`.
+  - Seznam souborů bude lexikograficky seřazen a každý soubor bude uveden na samostatném řádku.
+  - Každý řádek bude mít formát `FILENAME:<INDENT>GROUP_1,GROUP_2,...`, kde `FILENAME` je jméno souboru *(i s jeho případnými příponami)*, `<INDENT>` je počet mezer potřebných k zarovnání a `GROUP_*` jsou názvy skupin, u kterých je soubor evidován.
+    - Seznam skupin bude lexikograficky seřazen.
+    - Pokud budou skupiny upřesněny pomocí přepínače -g (viz sekce FILTRY), uvažujte při výpisu souborů a skupin pouze záznamy patřící do těchto skupin.
+    - Pokud soubor nepatří do žádné skupiny, bude namísto seznamu skupin vypsán pouze znak -.
+    - Minimální počet mezer použitých k zarovnání (INDENT) je jedna. Každý řádek bude zarovnán tak, aby seznam skupin začínal na stejné pozici. Tedy např:
+```
 FILE1:  grp1,grp2
 FILE10: grp1,grp3
 FILE:   -
-mole secret-log [-b DATE] [-a DATE] [DIRECTORY1 [DIRECTORY2 [...]]] – Skript za účelem dopadení krtka vytvoří tajný komprimovaný log s informacemi o souborech otevřených (editovaných) skrze skript mole.
-Pokud byly zadány adresáře, tajný log bude obsahovat záznamy o otevřených (editovaných) souborech pouze z těchto adresářů. Neexistující adresáře nebo adresáře bez záznamů budou ignorovány.
-Pokud nebyl zadán žádný adresář, tajný log bude obsahovat záznamy ze všech evidovaných adresářů.
-Otevřené (editované) soubory, které mají být v tajném logu zaznamenány, je možné dále omezit pomocí filtrů -a a -b (viz níže).
-Filtry
-FILTERS může být kombinace následujících filtrů (každý může být uveden maximálně jednou):
+```
+- `mole secret-log [-b DATE] [-a DATE] [DIRECTORY1 [DIRECTORY2 [...]]]` – Skript za účelem dopadení krtka vytvoří tajný komprimovaný log s informacemi o souborech otevřených *(editovaných)* skrze skript `mole`.
+  - Pokud byly zadány adresáře, tajný log bude obsahovat záznamy o otevřených *(editovaných)* souborech pouze z těchto adresářů. Neexistující adresáře nebo adresáře bez záznamů budou ignorovány.
+  - Pokud nebyl zadán žádný adresář, tajný log bude obsahovat záznamy ze všech evidovaných adresářů.
+  - Otevřené (editované) soubory, které mají být v tajném logu zaznamenány, je možné dále omezit pomocí filtrů `-a` a `-b` *(viz níže)*.
 
-[-g GROUP1[,GROUP2[,...]]] – Specifikace skupin. Soubor bude uvažován (pro potřeby otevření nebo výpisu) pouze tehdy, pokud jeho spuštění spadá alespoň do jedné z těchto skupin.
-[-a DATE] - Záznamy o otevřených (editovaných) souborech před tímto datem včetně (volitelně lze implementovat i jako striktně před uvedeným datem; UPDATED 22.3.) nebudou uvažovány.
-[-b DATE] - Záznamy o otevřených (editovaných) souborech po tomto datu včetně (volitelně lze implementovat i jako striktně po uvedeném datu; UPDATED 22.3.) nebudou uvažovány.
-Argument DATE je ve formátu YYYY-MM-DD.
-Nastavení a konfigurace
-Skript si pamatuje informace o svém spouštění v souboru, který je dán proměnnou MOLE_RC. Formát souboru není specifikován.
-Pokud není proměnná nastavena, jedná se o chybu.
-Pokud soubor na cestě dané proměnnou MOLE_RC neexistuje, soubor bude vytvořen včetně cesty k danému souboru (pokud i ta neexistuje).
-Skript spouští editor, který je nastaven v proměnné EDITOR. Pokud není proměnná EDITOR nastavená, respektuje proměnnou VISUAL. Pokud ani ta není nastavená, použije se příkaz vi.
-Formát tajného logu
+## Filtry
+`FILTERS` může být kombinace následujících filtrů (každý může být uveden maximálně jednou):
+
+- `[-g GROUP1[,GROUP2[,...]]]` – Specifikace skupin. Soubor bude uvažován (pro potřeby otevření nebo výpisu) pouze tehdy, pokud jeho spuštění spadá alespoň do jedné z těchto skupin.
+- `[-a DATE]` - Záznamy o otevřených (editovaných) souborech před tímto datem včetně (volitelně lze implementovat i jako striktně před uvedeným datem; UPDATED 22.3.) nebudou uvažovány.
+- `[-b DATE]` - Záznamy o otevřených (editovaných) souborech po tomto datu včetně (volitelně lze implementovat i jako striktně po uvedeném datu; UPDATED 22.3.) nebudou uvažovány.
+- Argument `DATE` je ve formátu `YYYY-MM-DD`.
+
+## Nastavení a konfigurace
+
+- Skript si pamatuje informace o svém spouštění v souboru, který je dán proměnnou MOLE_RC. Formát souboru není specifikován.
+  - Pokud není proměnná nastavena, jedná se o chybu.
+  - Pokud soubor na cestě dané proměnnou MOLE_RC neexistuje, soubor bude vytvořen včetně cesty k danému souboru (pokud i ta neexistuje).
+- Skript spouští editor, který je nastaven v proměnné EDITOR. Pokud není proměnná EDITOR nastavená, respektuje proměnnou VISUAL. Pokud ani ta není nastavená, použije se příkaz vi.
+
+## Formát tajného logu
+
 Tajný log vygenerovaný pomocí příkazu secret-log bude uložen v adresáři .mole umístěném v domovském adresáři (tedy např. /home/$USER/.mole/). Název souboru bude ve formátu log_USER_DATETIME.bz2, kde USER odpovídá jménu aktuálního uživatele a DATETIME odpovídá datu a času vytvoření tajného logu.
 Tajný log bude obsahovat záznamy o všech známých manipulacích (tedy otevření skrze skript mole) s vybranými soubory, případně dále omezených na daný časový úsek pomocí přepínačů -a, -b, nebo jejich kombinací.
 Formát záznamů v logu bude FILEPATH;DATETIME_1;DATETIME_2;..., kde
@@ -73,7 +80,9 @@ DATETIME_N je datum a čas chronologicky N-tého známého otevření souboru bu
 Záznamy v tajném logu budou seřazeny lexikograficky podle hodnoty FILEPATH.
 Formát hodnot DATETIME a DATETIME_N je YYYY-MM-DD_HH-mm-ss.
 Tajný log komprimujte pomocí utility bzip2.
-Poznámky
+
+## Poznámky
+
 Můžete předpokládat, že nebude zadána skupina se jménem - a že názvy skupin nebudou obsahovat znak čárky
 Můžete předpokládat, že názvy souborů (ani jejich cesty) nebudou obsahovat znaky středníku nebo dvojtečky.
 Skript nebere v potaz otevření nebo editace, které byly provedeny mimo skript mole.
